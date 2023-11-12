@@ -57,6 +57,8 @@ def main():
 
             })
 
+    out.sort(key=lambda m: m["releaseDate"], reverse=True)
+
     with open('data.json', 'w') as f:
         json.dump(out, f, indent=2, ensure_ascii=False)
 
