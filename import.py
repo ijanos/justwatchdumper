@@ -3,53 +3,61 @@ import json
 import os
 import html
 import sys
-import datetime
-
-
-def get_isosplit(s, split):
-    if split in s:
-        n, s = s.split(split)
-    else:
-        n = 0
-    return n, s
-
-
-def parse_isoduration(s):
-    # Remove prefix
-    s = s.split('P')[-1]
-
-    # Step through letter dividers
-    days, s = get_isosplit(s, 'D')
-    _, s = get_isosplit(s, 'T')
-    hours, s = get_isosplit(s, 'H')
-    minutes, s = get_isosplit(s, 'M')
-    seconds, s = get_isosplit(s, 'S')
-
-    # Convert all to seconds
-    dt = datetime.timedelta(days=int(days), hours=int(hours), minutes=int(minutes), seconds=int(seconds))
-    return int(dt.total_seconds() / 60)
+import re
 
 def main():
     out = []
     dumpdir = sys.argv[1]
+    genreMap = dict()
     for _, _, files in os.walk(dumpdir):
         for name in files:
             tree = lxml.html.parse(f"{dumpdir}/{name}")
-            jsonText = tree.getroot().xpath('//script[@type="application/ld+json"]')[0].text_content()
-            movie = json.loads(jsonText)
-            genres = list(map(html.unescape, movie["genre"]))
-            dirtectors = list(map(lambda d: d["name"], movie["director"]))
-            title = html.unescape(movie["name"])
-            duration = parse_isoduration(movie["duration"])
+
+            # this is terribly fragile but it works and it only has to run once
+            jsonText = tree.getroot().xpath("//script[contains(text(),'__APOLLO_STATE__')]")[0].text_content()
+            jsonObj = json.loads(jsonText.split("__APOLLO_STATE__=")[1])
+            defaultClient = jsonObj["defaultClient"]
+
+            keys = list(filter(lambda k: re.search(r"Movie.*content.*\)$", k), defaultClient.keys()))
+            movieKey = max(keys, key=lambda k: len(defaultClient[k].keys()))
+            movie = defaultClient[movieKey]
+
+            externelIds = list(filter(lambda k: re.search(r"Movie.*content.*\).externalIds$", k), defaultClient.keys()))
+            imdbExternalId = list(filter(lambda k: "imdbId" in defaultClient[k], externelIds))[0]
+
+            genreKeys = list(filter(lambda k: re.search(r"Genre:", k), defaultClient.keys()))
+
+            for genreKey in genreKeys:
+                genreObj = defaultClient[genreKey]
+                genreMap[genreObj["shortName"]] = genreObj["slug({\"language\":\"en\"})"]
+
+            creditKeys = list(map(lambda k: k["id"], movie["credits"]))
+            directors = []
+            for k in creditKeys:
+                credit = defaultClient[k]
+                if "role" in credit and credit["role"] == "DIRECTOR":
+                    directors.append(credit["name"])
+
+            title = html.unescape(movie["title"])
+            ogtitle = html.unescape(movie["originalTitle"])
+
+            genres = list(map(lambda g: genreMap[defaultClient[g["id"]]["shortName"]], movie["genres"]))
+
+            duration = movie["runtime"]
             out.append({
-                "title": title,
-                "director": dirtectors,
-                "release": movie["dateCreated"],
-                "duration": duration,
+                "englishTitle": title,
+                "originalTitle": ogtitle,
+                "director": directors,
+                "imdbID": defaultClient[imdbExternalId]["imdbId"],
+                "releaseYear": movie["originalReleaseYear"],
+                "releaseDate": movie["originalReleaseDate"],
+                "runtime": duration,
+                "ageCertification": movie["ageCertification"],
                 "genres": genres
+
             })
 
     with open('data.json', 'w') as f:
-        json.dump(out, f, indent=2)
+        json.dump(out, f, indent=2, ensure_ascii=False)
 
 main()
