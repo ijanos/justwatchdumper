@@ -12,7 +12,6 @@ def main():
     for _, _, files in os.walk(dumpdir):
         for name in files:
             tree = lxml.html.parse(f"{dumpdir}/{name}")
-
             # this is terribly fragile but it works and it only has to run once
             jsonText = tree.getroot().xpath("//script[contains(text(),'__APOLLO_STATE__')]")[0].text_content()
             jsonObj = json.loads(jsonText.split("__APOLLO_STATE__=")[1])
@@ -23,7 +22,11 @@ def main():
             movie = defaultClient[movieKey]
 
             externelIds = list(filter(lambda k: re.search(r"Movie.*content.*\).externalIds$", k), defaultClient.keys()))
-            imdbExternalId = list(filter(lambda k: "imdbId" in defaultClient[k], externelIds))[0]
+            if externelIds:
+                imdbExternalId = list(filter(lambda k: "imdbId" in defaultClient[k], externelIds))[0]
+                imdbid = defaultClient[imdbExternalId]["imdbId"]
+            else:
+                imdbid = ""
 
             genreKeys = list(filter(lambda k: re.search(r"Genre:", k), defaultClient.keys()))
 
@@ -37,6 +40,7 @@ def main():
                 credit = defaultClient[k]
                 if "role" in credit and credit["role"] == "DIRECTOR":
                     directors.append(credit["name"])
+            directors.sort()
 
             title = html.unescape(movie["title"])
             ogtitle = html.unescape(movie["originalTitle"])
@@ -48,13 +52,12 @@ def main():
                 "englishTitle": title,
                 "originalTitle": ogtitle,
                 "director": directors,
-                "imdbID": defaultClient[imdbExternalId]["imdbId"],
+                "imdbID": imdbid,
                 "releaseYear": movie["originalReleaseYear"],
-                "releaseDate": movie["originalReleaseDate"],
+                "releaseDate": movie["originalReleaseDate"] if movie["originalReleaseDate"] else "",
                 "runtime": duration,
                 "ageCertification": movie["ageCertification"],
-                "genres": genres
-
+                "genres": sorted(genres)
             })
 
     out.sort(key=lambda m: m["releaseDate"], reverse=True)
