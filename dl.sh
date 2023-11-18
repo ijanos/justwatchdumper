@@ -1,3 +1,3 @@
 #!/bin/sh
 sleep 1.6
-curl -O $*
+curl --compressed -O $*
