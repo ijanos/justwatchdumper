@@ -35,6 +35,11 @@ feed the text file to the download script with `xargs`. The script contains a sl
 xargs -n 1 ./dl.sh < urls.txt
 ```
 
+you will end up with a directory full of `.html` files, use the import script on the files and hope justwatch didn't change their json format.  
+
+```
+python import.py directory_name
+```
 
 # other things I've tried
 
