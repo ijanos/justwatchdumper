@@ -14,29 +14,45 @@ A stupid way to export data:
 5. use python to extract data from the downloaded files
 6. save everything to one json file
 
-This works because JustWatch puts heaps of data in json into their html pages.
+Thankfully JustWatch puts heaps of data in json into their html pages, that I can read. 
 
-# oneliners
+# usage
 
+Create an array with all the links from the browser console: 
+```js
+output = []; document.querySelectorAll("h2.title-card-heading").forEach((e) => output.push(e.parentNode.href))
+```
+
+type `output` into the console then copy paste the resulting array. 
+<img width="712" alt="SCR-20231213-kofg-2" src="https://github.com/ijanos/justwatchdumper/assets/175447/5ec9721d-8d01-4b0a-b92f-725865c717d7">
+
+
+cleanup the array, remove `"` quotes (use search & replace in your favourite editor) and save it to a text file with one URL per line.  
+
+feed the text file to the download script with `xargs`. The script contains a sleep, if you go full speed justwatch will block you for too many requests. 
+
+```sh
+xargs -n 1 ./dl.sh < urls.txt
+```
+
+
+# other things I've tried
+
+Read the title into a JSON list from the browser's console: 
 
 ```js
 output = []; document.querySelectorAll("h2.title-card-heading").forEach((e) => output.push({"title": e.childNodes[0].textContent.trim()}))
 ```
 
+read the title and the release date: 
+
 ```js
 output = []; document.querySelectorAll("h2.title-card-heading").forEach((e) => output.push({"title": e.childNodes[0].textContent.trim(), "release": parseInt(e.childNodes[1].textContent.trim().replace(/[\)\(]/g,""),10) }))
 ```
 
+get a list of links to each movie: 
 
 ```js
 document.querySelectorAll("h2.title-card-heading").forEach((e) => console.log(e.parentNode.href))
 ```
 
-
-```js
-output = []; document.querySelectorAll("h2.title-card-heading").forEach((e) => output.push(e.parentNode.href))
-```
-
-```sh
-xargs -n 1 ./dl.sh < urls.txt
-```
